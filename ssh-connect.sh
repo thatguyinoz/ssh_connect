@@ -1,1 +1,1 @@
-scripts/ssh-connect.0.10.sh
+scripts/ssh-connect.0.19.sh

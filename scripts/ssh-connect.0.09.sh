@@ -3,7 +3,7 @@
 # ==============================================================================
 # Script: ssh-connect.sh
 # Description: Facilitates SSH connections using a predefined list of hosts.
-# Author: Gemini
+# Author: peter@hctech.com.au
 # License: MIT
 # ==============================================================================
 
@@ -57,9 +57,9 @@ VERSION="0.09"
 # ==============================================================================
 
 # --- Configuration ---
-# Define global constants and configuration variables here.
 # The HOSTS_FILE variable points to the list of hosts.
-# For development, this is a local file. In production, it will be ~/.config/mysshhosts.conf.
+# For development, this is a local file. In production, it should be ~/.config/mysshhosts.conf.
+#HOSTS_FILE="~/.config/myhosts.conf"
 HOSTS_FILE="auth/my_hosts.conf"
 # Optional: Define a terminal to open new SSH sessions in.
 # If blank or the command is not found, the session will open in the current terminal.
