@@ -60,3 +60,33 @@ TERMINAL_CMD="gnome-terminal"
 ```
 
 You can change this to your preferred terminal, for example: `xterm`, `konsole`, or `terminator`.
+
+---
+
+## 4. Advanced Usage
+
+### Direct Connection
+
+For quick, one-off connections, you can use the script as a wrapper for `ssh`. It will automatically test the connection and prompt you to save the new host for future use.
+
+The arguments can be provided in any order:
+
+```bash
+# Connect using the default port 22
+./ssh-connect.sh user@hostname
+
+# Specify a custom port
+./ssh-connect.sh -p 2222 user@hostname
+./ssh-connect.sh user@hostname -p2222
+```
+
+### Intelligent Key Installation
+
+The script makes enabling passwordless login easy and reliable. When you first connect to a host that requires a password, it will offer to install a public key.
+
+The script is device-aware and will automatically use the correct method:
+
+*   **Standard Hosts:** For most servers, it uses the robust, industry-standard `ssh-copy-id` utility.
+*   **EdgeOS Devices:** The script automatically detects Ubiquiti EdgeRouters. For these devices, it uses a specialized, fully automated process that creates and manipulates the persistent key files in `/config/auth/<username>_authorized_keys`, copying it back to /home/<user>/.ssh/authorized_keys ensuring the key is installed reliably without any manual steps. the user can log in and use "configure|loadkey <username> /config/auth/<user>-authorized_keys|exit" to add the keys to saved config if desired.
+
+This intelligent detection makes the key installation process seamless and reliable across different types of remote hosts.
