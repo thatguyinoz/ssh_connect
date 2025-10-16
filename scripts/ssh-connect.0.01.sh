@@ -27,6 +27,7 @@ VERSION="0.01"
 # The HOSTS_FILE variable points to the list of hosts.
 # For development, this is a local file. In production, it will be ~/.config/mysshhosts.conf.
 HOSTS_FILE="auth/my_hosts.conf"
+TERMINAL_CMD="gnome-terminal" #<-- change this to your preferred terminal (e.g., xterm, konsole)
 
 # ==============================================================================
 # --- Core Functions ---
@@ -70,13 +71,90 @@ check_config_file() {
 }
 
 # ------------------------------------------------------------------------------
-# Function: display_host_list()
-# Description: Reads and displays the list of hosts from the config file.
+# Function: load_hosts()
+# Description: Loads hosts from the config file into an array and displays them.
+#              The hosts are sorted by the last connected timestamp.
 # ------------------------------------------------------------------------------
-display_host_list() {
+load_hosts() {
     echo "Available hosts:"
-    # Read the file, ignore comments and empty lines, and format for display.
-    grep -vE '^\s*#|^\s*$' "${HOSTS_FILE}" | nl -w2 -s'. '
+    mapfile -t hosts < <(grep -vE '^\s*#|^\s*$' "${HOSTS_FILE}" | sort -t, -k5 -nr)
+    
+    for i in "${!hosts[@]}"; do
+        # Extract friendly name for display
+        friendly_name=$(echo "${hosts[$i]}" | cut -d, -f1)
+        printf "%2d. %s\n" "$((i+1))" "${friendly_name}"
+    done
+}
+
+# ------------------------------------------------------------------------------
+# Function: select_host()
+# Description: Prompts the user to select a host and validates the input.
+# ------------------------------------------------------------------------------
+select_host() {
+    read -p "Enter the number of the host to connect to: " selection
+    if ! [[ "$selection" =~ ^[0-9]+$ ]] || (( selection < 1 || selection > ${#hosts[@]} )); then
+        echo "Invalid selection. Please enter a number between 1 and ${#hosts[@]}."
+        return 1
+    fi
+    
+    # Adjust for 0-based array index
+    connect_to_host "${hosts[$((selection-1))]}"
+}
+
+# ------------------------------------------------------------------------------
+# Function: connect_to_host()
+# Description: Establishes a persistent background SSH connection and opens
+#              an interactive session in a new terminal.
+# ------------------------------------------------------------------------------
+connect_to_host() {
+    IFS=',' read -r friendly_name user hostname port timestamp <<< "$1"
+    
+    local socket_dir="${HOME}/.ssh/controlmasters"
+    local socket_file="${socket_dir}/${user}@${hostname}:${port}"
+    
+    # Create the directory for control sockets if it doesn't exist
+    mkdir -p "${socket_dir}"
+    
+    echo "Establishing connection to ${friendly_name}..."
+    
+    # Step 1: Establish the master connection in the background.
+    # -f: Go to background just before command execution.
+    # -N: Do not execute a remote command.
+    # -M: Puts the client into "master" mode for connection sharing.
+    # ControlPersist=yes: Keep the master connection open indefinitely.
+    ssh -fNM -o ControlPersist=yes -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
+    
+    # Step 2: Check if the master connection was successful.
+    if [ $? -eq 0 ]; then
+        echo "Connection successful. Updating timestamp."
+        update_timestamp "$1"
+        
+        # Step 3: Open the interactive session in a new terminal.
+        # This command attaches to the master connection's socket.
+        ${TERMINAL_CMD} -e "ssh -o ControlPath='${socket_file}' '${user}@${hostname}' -p '${port}'" &
+        
+        echo "New terminal opened for your session."
+    else
+        echo "Connection to ${friendly_name} failed."
+    fi
+}
+
+# ------------------------------------------------------------------------------
+# Function: update_timestamp()
+# Description: Updates the last connected timestamp for the selected host.
+# ------------------------------------------------------------------------------
+update_timestamp() {
+    local selected_host_line="$1"
+    local new_timestamp
+    new_timestamp=$(date +%s)
+    
+    # Create the new line with the updated timestamp
+    local new_host_line
+    new_host_line=$(echo "${selected_host_line}" | awk -F, -v OFS=',' -v ts="${new_timestamp}" '{$5=ts; print}')
+    
+    # Use sed to replace the old line with the new one in the file
+    # Note: Using a temporary file for portability with sed
+    sed "s|${selected_host_line}|${new_host_line}|" "${HOSTS_FILE}" > "${HOSTS_FILE}.tmp" && mv "${HOSTS_FILE}.tmp" "${HOSTS_FILE}"
 }
 
 
@@ -84,14 +162,18 @@ display_host_list() {
 # --- Main Execution Logic ---
 # ==============================================================================
 main() {
-    # Check for the configuration file first.
     if ! check_config_file; then
-        # Exit if the config file check fails (e.g., user opts not to create it).
         return 1
     fi
 
-    # If the config file exists, display the list of hosts.
-    display_host_list
+    load_hosts
+    
+    if (( ${#hosts[@]} == 0 )); then
+        echo "No hosts found in the configuration file."
+        return 1
+    fi
+    
+    select_host
 }
 
 # --- Script Entry Point ---
