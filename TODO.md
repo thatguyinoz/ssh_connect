@@ -1,18 +1,42 @@
-### `ssh-connect` TODO List:
+# ssh-connect TODO
+
+This document tracks the development status of the `ssh-connect` utility.
+
+---
+
+### Completed Features ✔️
 
 *   **Host Management:**
-    *   Maintain a list of commonly used hosts.
-    *   Store hosts in an external file (e.g., `~/.config/mysshhosts.conf`).
-    *   The host file should support fields for: friendly name, user, hostname/IP, port, and `last_connected_timestamp` (in epoch format).
+    *   ✅ Maintain a list of hosts in an external CSV file (`auth/my_hosts.conf`).
+    *   ✅ Host file supports: friendly name, user, host, port, last connected timestamp, and key installation status.
+    *   ✅ Automatically prompts to create a sample host file if one is not found.
 
-*   **User Interaction:**
-    *   On launch, offer to reconnect to the most recently used host (based on timestamp).
-    *   Display a numbered list of hosts from the config file for selection, sorted by `last_connected_timestamp`.
-    *   Prompt to create the configuration file (`~/.config/mysshhosts.conf`) if it doesn't exist.
+*   **Connection Handling:**
+    *   ✅ Display a numbered list of hosts, sorted by the most recently used.
+    *   ✅ Use SSH `ControlMaster` and `ControlPersist` for robust, reusable connections, preventing orphaned sessions.
+    *   ✅ Implement a direct connection mode (`./ssh-connect.sh user@host`).
+    *   ✅ Implement a robust, two-stage connection process to handle servers with strict security and verbose banners.
+
+*   **Key Installation:**
+    *   ✅ Offer to install a public SSH key on the first successful connection.
+    *   ✅ Visually indicate hosts with installed keys (🔑).
+    *   ✅ **Intelligent, Device-Aware Installation:**
+        *   Automatically detects Ubiquiti EdgeOS devices from their SSH banner.
+        *   Uses a specialized, reliable method to install keys on EdgeOS devices.
+        *   Uses the standard `ssh-copy-id` for all other hosts.
+
+---
+
+### Future Enhancements 🚀
 
 *   **Configuration:**
-    *   Use an INI file for script settings (e.g., `~/.config/ssh-connect.ini`).
+    *   Migrate script settings (like `TERMINAL_CMD` and `HOSTS_FILE` path) from hardcoded variables to an external INI configuration file (e.g., `~/.config/ssh-connect.ini`).
 
-*   **Future Features (Scope Creep):**
-    *   Add an option to push a public key to the selected host using `ssh-copy-id`.
-    *   allow the script to be available for repeated use, perhaps call the secomd connection from a forked process?
+*   **User Experience:**
+    *   On launch, directly offer to reconnect to the single most recently used host as a default, quick-connect option.
+
+*   **Host Management Commands:**
+    *   Add command-line arguments to manage the host file directly, for example:
+        *   `./ssh-connect.sh --add "New Server,user,host,22"`
+        *   `./ssh-connect.sh --delete "Old Server"`
+        *   `./ssh-connect.sh --list`
