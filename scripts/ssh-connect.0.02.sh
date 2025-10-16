@@ -9,9 +9,14 @@
 
 # --- Script Metadata and Versioning ---
 SCRIPT_NAME=$(basename "$0")
-VERSION="0.01"
+VERSION="0.02"
 
 # --- Changelog ---
+# Version 0.02:
+#   - Implemented the missing create_sample_config() function.
+#   - Added command-line argument parsing for -h and --help.
+#   - Added a check to verify that the TERMINAL_CMD exists before use.
+#
 # Version 0.01:
 #   - Initial refactor to align with project style guide.
 #   - Added standard header, main() function, and section structure.

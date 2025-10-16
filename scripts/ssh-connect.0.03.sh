@@ -9,9 +9,19 @@
 
 # --- Script Metadata and Versioning ---
 SCRIPT_NAME=$(basename "$0")
-VERSION="0.01"
+VERSION="0.03"
 
 # --- Changelog ---
+# Version 0.03:
+#   - Modified connect_to_host() to fall back to the current terminal
+#     if TERMINAL_CMD is not set or the command is not found.
+#   - Updated comments to reflect that TERMINAL_CMD is optional.
+#
+# Version 0.02:
+#   - Implemented the missing create_sample_config() function.
+#   - Added command-line argument parsing for -h and --help.
+#   - Added a check to verify that the TERMINAL_CMD exists before use.
+#
 # Version 0.01:
 #   - Initial refactor to align with project style guide.
 #   - Added standard header, main() function, and section structure.
@@ -27,6 +37,8 @@ VERSION="0.01"
 # The HOSTS_FILE variable points to the list of hosts.
 # For development, this is a local file. In production, it will be ~/.config/mysshhosts.conf.
 HOSTS_FILE="auth/my_hosts.conf"
+# Optional: Define a terminal to open new SSH sessions in.
+# If blank or the command is not found, the session will open in the current terminal.
 TERMINAL_CMD="gnome-terminal" #<-- change this to your preferred terminal (e.g., xterm, konsole)
 
 # ==============================================================================
@@ -172,18 +184,17 @@ connect_to_host() {
         echo "Connection successful. Updating timestamp."
         update_timestamp "$1"
         
-        # Step 3: Verify the terminal command exists.
-        if ! command -v "${TERMINAL_CMD}" &> /dev/null; then
-            echo "Error: Terminal command '${TERMINAL_CMD}' not found."
-            echo "Please install it or change the 'TERMINAL_CMD' variable in the script."
-            return 1
+        # Step 3: Try to open in a new terminal, otherwise use the current one.
+        if [[ -n "${TERMINAL_CMD}" && -x "$(command -v ${TERMINAL_CMD})" ]]; then
+            # Open the interactive session in a new terminal.
+            echo "Opening new terminal with '${TERMINAL_CMD}'..."
+            ${TERMINAL_CMD} -e "ssh -o ControlPath='${socket_file}' '${user}@${hostname}' -p '${port}'" &
+            echo "New terminal opened for your session."
+        else
+            # Fallback to the current terminal.
+            echo "Spawning session in current terminal..."
+            ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
         fi
-
-        # Step 4: Open the interactive session in a new terminal.
-        # This command attaches to the master connection's socket.
-        ${TERMINAL_CMD} -e "ssh -o ControlPath='${socket_file}' '${user}@${hostname}' -p '${port}'" &
-        
-        echo "New terminal opened for your session."
     else
         echo "Connection to ${friendly_name} failed."
     fi

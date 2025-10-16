@@ -9,9 +9,40 @@
 
 # --- Script Metadata and Versioning ---
 SCRIPT_NAME=$(basename "$0")
-VERSION="0.01"
+VERSION="0.07"
 
 # --- Changelog ---
+# Version 0.07:
+#   - Fixed bug in ssh-copy-id command that caused a 'Too many arguments'
+#     error. Connection parameters are now correctly quoted.
+#
+# Version 0.06:
+#   - Added SSH key installation feature.
+#   - Host file format updated to track key installation status.
+#   - Host list now displays a key icon (🔑) for configured hosts.
+#   - Script now offers to install a public key for passwordless login
+#     using the existing authenticated connection.
+#
+# Version 0.05:
+#   - Fixed bug in 'ssh -O check' by adding the missing ControlPath option.
+#     This allows the script to correctly reuse existing connections.
+#
+# Version 0.04:
+#   - Reworked connection logic to prevent orphaned sessions.
+#   - Switched to ControlPersist=10s for automatic cleanup.
+#   - Added robust connection check with 'ssh -O check'.
+#   - Script now hands off control to ssh session with 'exec' and exits.
+#
+# Version 0.03:
+#   - Modified connect_to_host() to fall back to the current terminal
+#     if TERMINAL_CMD is not set or the command is not found.
+#   - Updated comments to reflect that TERMINAL_CMD is optional.
+#
+# Version 0.02:
+#   - Implemented the missing create_sample_config() function.
+#   - Added command-line argument parsing for -h and --help.
+#   - Added a check to verify that the TERMINAL_CMD exists before use.
+#
 # Version 0.01:
 #   - Initial refactor to align with project style guide.
 #   - Added standard header, main() function, and section structure.
@@ -27,6 +58,8 @@ VERSION="0.01"
 # The HOSTS_FILE variable points to the list of hosts.
 # For development, this is a local file. In production, it will be ~/.config/mysshhosts.conf.
 HOSTS_FILE="auth/my_hosts.conf"
+# Optional: Define a terminal to open new SSH sessions in.
+# If blank or the command is not found, the session will open in the current terminal.
 TERMINAL_CMD="gnome-terminal" #<-- change this to your preferred terminal (e.g., xterm, konsole)
 
 # ==============================================================================
@@ -94,16 +127,15 @@ create_sample_config() {
 # Instructions:
 # - Each line represents a single host.
 # - The format is a comma-separated list:
-#   Friendly Name,Username,Hostname or IP,Port,LastConnectedTimestamp
+#   Friendly Name,Username,Hostname or IP,Port,LastConnectedTimestamp,KeyInstalled
 #
-# - 'Friendly Name' is the alias you'll see in the selection menu.
-# - 'LastConnectedTimestamp' is a Unix epoch timestamp used for sorting.
-#   You can leave it as 0 for new entries.
+# - 'KeyInstalled' should be 1 if you have installed an SSH key, otherwise 0.
+#   The script will offer to install a key for you if this is 0.
 #
 # ==============================================================================
 #
 # --- Example Entry (uncomment and edit to use) ---
-# My Web Server,webadmin,192.168.1.100,22,0
+# My Web Server,webadmin,192.168.1.100,22,0,0
 
 EOF
     then
@@ -123,9 +155,14 @@ load_hosts() {
     mapfile -t hosts < <(grep -vE '^\s*#|^\s*$' "${HOSTS_FILE}" | sort -t, -k5 -nr)
     
     for i in "${!hosts[@]}"; do
-        # Extract friendly name for display
-        friendly_name=$(echo "${hosts[$i]}" | cut -d, -f1)
-        printf "%2d. %s\n" "$((i+1))" "${friendly_name}"
+        IFS=',' read -r friendly_name _ _ _ _ key_installed <<< "${hosts[$i]}"
+        
+        local display_name="${friendly_name}"
+        if [[ "${key_installed}" -eq 1 ]]; then
+            display_name="🔑 ${friendly_name}"
+        fi
+        
+        printf "%2d. %s\n" "$((i+1))" "${display_name}"
     done
 }
 
@@ -150,7 +187,7 @@ select_host() {
 #              an interactive session in a new terminal.
 # ------------------------------------------------------------------------------
 connect_to_host() {
-    IFS=',' read -r friendly_name user hostname port timestamp <<< "$1"
+    IFS=',' read -r friendly_name user hostname port timestamp key_installed <<< "$1"
     
     local socket_dir="${HOME}/.ssh/controlmasters"
     local socket_file="${socket_dir}/${user}@${hostname}:${port}"
@@ -158,35 +195,109 @@ connect_to_host() {
     # Create the directory for control sockets if it doesn't exist
     mkdir -p "${socket_dir}"
     
-    echo "Establishing connection to ${friendly_name}..."
-    
-    # Step 1: Establish the master connection in the background.
-    # -f: Go to background just before command execution.
-    # -N: Do not execute a remote command.
-    # -M: Puts the client into "master" mode for connection sharing.
-    # ControlPersist=yes: Keep the master connection open indefinitely.
-    ssh -fNM -o ControlPersist=yes -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
-    
-    # Step 2: Check if the master connection was successful.
-    if [ $? -eq 0 ]; then
-        echo "Connection successful. Updating timestamp."
-        update_timestamp "$1"
+    # If a socket already exists, it might be stale. We'll check and reuse if it's live.
+    if ! ssh -o ControlPath="${socket_file}" -O check "${user}@${hostname}" -p "${port}" &>/dev/null; then
+        echo "Establishing connection to ${friendly_name}..."
+        # Start a new master connection in the background.
+        # ControlPersist=10s: Keep master alive for 10s after the last client disconnects.
+        ssh -fNM -o ControlPersist=10s -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
         
-        # Step 3: Verify the terminal command exists.
-        if ! command -v "${TERMINAL_CMD}" &> /dev/null; then
-            echo "Error: Terminal command '${TERMINAL_CMD}' not found."
-            echo "Please install it or change the 'TERMINAL_CMD' variable in the script."
+        # Wait a moment for the connection to establish
+        sleep 1
+        
+        # Check if the master connection was successful.
+        if ! ssh -o ControlPath="${socket_file}" -O check "${user}@${hostname}" -p "${port}" &>/dev/null; then
+            echo "Connection to ${friendly_name} failed."
+            # Clean up the failed socket
+            rm -f "${socket_file}"
             return 1
         fi
-
-        # Step 4: Open the interactive session in a new terminal.
-        # This command attaches to the master connection's socket.
-        ${TERMINAL_CMD} -e "ssh -o ControlPath='${socket_file}' '${user}@${hostname}' -p '${port}'" &
-        
-        echo "New terminal opened for your session."
     else
-        echo "Connection to ${friendly_name} failed."
+        echo "Reusing existing connection to ${friendly_name}."
     fi
+
+    # --- Connection Successful ---
+    echo "Connection successful. Updating timestamp."
+    update_timestamp "$1"
+
+    # If a key is not yet installed, offer to install one.
+    if [[ "${key_installed}" -ne 1 ]]; then
+        offer_to_install_key "$1"
+    fi
+
+    # Hand off to the interactive session
+    if [[ -n "${TERMINAL_CMD}" && -x "$(command -v ${TERMINAL_CMD})" ]]; then
+        echo "Opening new terminal with '${TERMINAL_CMD}'..."
+        ${TERMINAL_CMD} -e "ssh -o ControlPath='${socket_file}' '${user}@${hostname}' -p '${port}'" &
+        # The script will now exit.
+    else
+        echo "Spawning session in current terminal..."
+        # Replace the script's process with the ssh process.
+        exec ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
+    fi
+}
+
+# ------------------------------------------------------------------------------
+# Function: offer_to_install_key()
+# Description: Finds public SSH keys and offers to install one on the remote host.
+# ------------------------------------------------------------------------------
+offer_to_install_key() {
+    set -x
+    local host_details="$1"
+    IFS=',' read -r friendly_name user hostname port _ _ <<< "${host_details}"
+    local socket_dir="${HOME}/.ssh/controlmasters"
+    local socket_file="${socket_dir}/${user}@${hostname}:${port}"
+
+    mapfile -t public_keys < <(find "${HOME}/.ssh" -type f -name "*.pub")
+
+    if [[ ${#public_keys[@]} -eq 0 ]]; then
+        echo "No public SSH keys found in ~/.ssh/. Skipping key installation."
+        return
+    fi
+
+    read -p "Would you like to install an SSH key for passwordless login? (y/n): " choice
+    if [[ "$choice" != "y" && "$choice" != "Y" ]]; then
+        return
+    fi
+
+    echo "Available public keys:"
+    for i in "${!public_keys[@]}"; do
+        printf "%2d. %s\n" "$((i+1))" "$(basename "${public_keys[$i]}")"
+    done
+
+    read -p "Enter the number of the key to install (or any other key to cancel): " selection
+    if ! [[ "$selection" =~ ^[0-9]+$ ]] || (( selection < 1 || selection > ${#public_keys[@]} )); then
+        echo "Invalid selection. Cancelling key installation."
+        return
+    fi
+
+    local selected_key="${public_keys[$((selection-1))]}"
+    echo "Installing key '${selected_key}'..."
+
+    # Use the existing control socket to avoid a password prompt.
+    # All connection info must be passed as a single argument to ssh-copy-id.
+    if ssh-copy-id -i "${selected_key}" "-p ${port} -o ControlPath=${socket_file} ${user}@${hostname}"; then
+        echo "Key installed successfully."
+        update_key_status "${host_details}"
+    else
+        echo "Failed to install SSH key."
+    fi
+    set +x
+}
+
+# ------------------------------------------------------------------------------
+# Function: update_key_status()
+# Description: Updates the KeyInstalled flag for a host to 1.
+# ------------------------------------------------------------------------------
+update_key_status() {
+    local selected_host_line="$1"
+    
+    # Create the new line with the updated key status
+    local new_host_line
+    new_host_line=$(echo "${selected_host_line}" | awk -F, -v OFS=',' '{$6=1; print}')
+    
+    # Use sed to replace the old line with the new one in the file
+    sed "s|${selected_host_line}|${new_host_line}|" "${HOSTS_FILE}" > "${HOSTS_FILE}.tmp" && mv "${HOSTS_FILE}.tmp" "${HOSTS_FILE}"
 }
 
 # ------------------------------------------------------------------------------

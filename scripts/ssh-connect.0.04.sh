@@ -9,9 +9,25 @@
 
 # --- Script Metadata and Versioning ---
 SCRIPT_NAME=$(basename "$0")
-VERSION="0.01"
+VERSION="0.04"
 
 # --- Changelog ---
+# Version 0.04:
+#   - Reworked connection logic to prevent orphaned sessions.
+#   - Switched to ControlPersist=10s for automatic cleanup.
+#   - Added robust connection check with 'ssh -O check'.
+#   - Script now hands off control to ssh session with 'exec' and exits.
+#
+# Version 0.03:
+#   - Modified connect_to_host() to fall back to the current terminal
+#     if TERMINAL_CMD is not set or the command is not found.
+#   - Updated comments to reflect that TERMINAL_CMD is optional.
+#
+# Version 0.02:
+#   - Implemented the missing create_sample_config() function.
+#   - Added command-line argument parsing for -h and --help.
+#   - Added a check to verify that the TERMINAL_CMD exists before use.
+#
 # Version 0.01:
 #   - Initial refactor to align with project style guide.
 #   - Added standard header, main() function, and section structure.
@@ -27,6 +43,8 @@ VERSION="0.01"
 # The HOSTS_FILE variable points to the list of hosts.
 # For development, this is a local file. In production, it will be ~/.config/mysshhosts.conf.
 HOSTS_FILE="auth/my_hosts.conf"
+# Optional: Define a terminal to open new SSH sessions in.
+# If blank or the command is not found, the session will open in the current terminal.
 TERMINAL_CMD="gnome-terminal" #<-- change this to your preferred terminal (e.g., xterm, konsole)
 
 # ==============================================================================
@@ -150,6 +168,7 @@ select_host() {
 #              an interactive session in a new terminal.
 # ------------------------------------------------------------------------------
 connect_to_host() {
+    set -x
     IFS=',' read -r friendly_name user hostname port timestamp <<< "$1"
     
     local socket_dir="${HOME}/.ssh/controlmasters"
@@ -158,35 +177,42 @@ connect_to_host() {
     # Create the directory for control sockets if it doesn't exist
     mkdir -p "${socket_dir}"
     
-    echo "Establishing connection to ${friendly_name}..."
-    
-    # Step 1: Establish the master connection in the background.
-    # -f: Go to background just before command execution.
-    # -N: Do not execute a remote command.
-    # -M: Puts the client into "master" mode for connection sharing.
-    # ControlPersist=yes: Keep the master connection open indefinitely.
-    ssh -fNM -o ControlPersist=yes -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
-    
-    # Step 2: Check if the master connection was successful.
-    if [ $? -eq 0 ]; then
-        echo "Connection successful. Updating timestamp."
-        update_timestamp "$1"
+    # If a socket already exists, it might be stale. We'll check and reuse if it's live.
+    if ! ssh -O check "${user}@${hostname}" -p "${port}" &>/dev/null; then
+        echo "Establishing connection to ${friendly_name}..."
+        # Start a new master connection in the background.
+        # ControlPersist=10s: Keep master alive for 10s after the last client disconnects.
+        ssh -fNM -o ControlPersist=20s -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
         
-        # Step 3: Verify the terminal command exists.
-        if ! command -v "${TERMINAL_CMD}" &> /dev/null; then
-            echo "Error: Terminal command '${TERMINAL_CMD}' not found."
-            echo "Please install it or change the 'TERMINAL_CMD' variable in the script."
+        # Wait a moment for the connection to establish
+        sleep 5
+        
+        # Check if the master connection was successful.
+        if ! ssh -O check "${user}@${hostname}" -p "${port}" &>/dev/null; then
+            echo "Connection to ${friendly_name} failed."
+            # Clean up the failed socket
+            rm -f "${socket_file}"
             return 1
         fi
-
-        # Step 4: Open the interactive session in a new terminal.
-        # This command attaches to the master connection's socket.
-        ${TERMINAL_CMD} -e "ssh -o ControlPath='${socket_file}' '${user}@${hostname}' -p '${port}'" &
-        
-        echo "New terminal opened for your session."
     else
-        echo "Connection to ${friendly_name} failed."
+        echo "Reusing existing connection to ${friendly_name}."
     fi
+
+    # --- Connection Successful ---
+    echo "Connection successful. Updating timestamp."
+    update_timestamp "$1"
+
+    # Hand off to the interactive session
+    if [[ -n "${TERMINAL_CMD}" && -x "$(command -v ${TERMINAL_CMD})" ]]; then
+        echo "Opening new terminal with '${TERMINAL_CMD}'..."
+        ${TERMINAL_CMD} -e "ssh -o ControlPath='${socket_file}' '${user}@${hostname}' -p '${port}'" &
+        # The script will now exit.
+    else
+        echo "Spawning session in current terminal..."
+        # Replace the script's process with the ssh process.
+        exec ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
+    fi
+    set +x
 }
 
 # ------------------------------------------------------------------------------

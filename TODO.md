@@ -15,3 +15,4 @@
 
 *   **Future Features (Scope Creep):**
     *   Add an option to push a public key to the selected host using `ssh-copy-id`.
+    *   allow the script to be available for repeated use, perhaps call the secomd connection from a forked process?

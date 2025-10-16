@@ -7,7 +7,9 @@
 *   **Core Features:**
     *   Connect to frequently used hosts via a simple selection menu.
     *   Uses SSH connection multiplexing (`ControlMaster`) to establish a persistent background connection, allowing for instant subsequent connections.
-    *   Opens interactive sessions in a new terminal window, leaving the original script free.
+    *   Opens interactive sessions in a new terminal window (if available), or in the current one.
+    *   Offers to install a public SSH key for passwordless login on the first successful connection.
+    *   Visually indicates (🔑) which hosts are already configured with an SSH key.
     *   Updates a timestamp in the host file only after a successful connection.
     *   Stores host configurations in an external, easy-to-edit file.
 *   **Technology Stack:** Bash
@@ -22,9 +24,11 @@ To use the script, simply execute it from your terminal:
 ./ssh-connect.sh
 ```
 
-The script will display a numbered list of available hosts, sorted by the most recently connected. Enter the number corresponding to the host you wish to connect to and press Enter.
+The script will display a numbered list of available hosts, sorted by the most recently connected. Hosts that are already configured for passwordless login will be marked with a key icon (🔑).
 
-A new terminal window will open with your SSH session. The original script will be ready to accept another command.
+Enter the number corresponding to the host you wish to connect to and press Enter.
+
+If it's your first time connecting to a host, the script will offer to install one of your local public SSH keys (`~/.ssh/*.pub`) onto the remote server, enabling passwordless login for future sessions.
 
 ---
 
@@ -40,14 +44,15 @@ The script uses a configuration file to store the list of SSH hosts.
 The file uses a simple comma-separated value (CSV) format:
 
 ```
-# Format: Friendly Name,User,Hostname/IP,Port,LastConnectedTimestamp
-My Web Server,webadmin,192.168.1.100,22,1678886400
-Corporate DNS,root,dns.corp.example.com,22,0
+# Format: Friendly Name,User,Hostname/IP,Port,LastConnectedTimestamp,KeyInstalled
+# KeyInstalled: 1 if an SSH key has been installed, 0 otherwise.
+My Web Server,webadmin,192.168.1.100,22,1678886400,1
+Corporate DNS,root,dns.corp.example.com,22,0,0
 ```
 
 ### Terminal Command
 
-The script opens a new terminal window for the SSH session. You can configure which terminal to use by editing the `TERMINAL_CMD` variable at the top of the `ssh-connect.sh` script.
+The script opens a new terminal window for the SSH session. You can configure which terminal to use by editing the `TERMINAL_CMD` variable at the top of the `ssh-connect.sh` script. If this variable is left blank or the command is not found, the session will open in the current terminal.
 
 **Default:**
 ```bash
