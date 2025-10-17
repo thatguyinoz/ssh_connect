@@ -1,1 +1,4 @@
 auth/
+
+.gemini/
+gha-creds-*.json

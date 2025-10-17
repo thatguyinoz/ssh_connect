@@ -16,7 +16,56 @@
 
 ---
 
-## 2. Usage
+## 2. Installation
+
+There are a couple of ways to download the script.
+
+### Method 1: Git Clone (Recommended)
+
+If you have `git` installed, you can clone the entire repository:
+
+```bash
+git clone https://github.com/thatguyinoz/ssh-connect.git
+cd ssh-connect
+```
+
+This will download all the files, including the latest version of the script, `ssh-connect.sh`.
+
+### Method 2: Download the script directly
+
+You can download the script directly using `curl` or `wget`.
+
+Using `curl`:
+```bash
+curl -o ssh-connect.sh https://raw.githubusercontent.com/thatguyinoz/ssh_connect/master/scripts/ssh-connect.0.19.sh
+```
+
+Using `wget`:
+```bash
+wget -O ssh-connect.sh https://raw.githubusercontent.com/thatguyinoz/ssh_connect/master/scripts/ssh-connect.0.19.sh
+```
+
+### Making the script executable
+
+After downloading, you need to make the script executable:
+
+```bash
+chmod +x ssh-connect.sh
+```
+
+### (Optional) Move to a directory in your PATH
+
+To run the script from anywhere, move it to a directory in your system's `PATH`.
+
+```bash
+sudo mv ssh-connect.sh /usr/local/bin/ssh-connect
+```
+
+Now you can run the script by simply typing `ssh-connect` in your terminal.
+
+---
+
+## 3. Usage
 
 To use the script, simply execute it from your terminal:
 

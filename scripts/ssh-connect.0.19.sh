@@ -3,7 +3,7 @@
 # ==============================================================================
 # Script: ssh-connect.sh
 # Description: Facilitates SSH connections using a predefined list of hosts.
-# Author: peter@hctech.com.au
+# Author: thatguy@hctech.com.au
 # License: MIT
 # ==============================================================================
 
@@ -13,6 +13,9 @@ VERSION="0.19"
 
 # --- Changelog ---
 # Version 0.19:
+#   - Refactored the TERMINAL_CMD logic for better cross-terminal compatibility.
+#     The execution flag ('--' for gnome-terminal, '-e' for others) is now
+#     part of the TERMINAL_CMD variable itself, simplifying the execution command.
 #   - Implemented a more robust, user-provided method for EdgeOS key
 #     installation.
 #   - The script now creates and manipulates a persistent authorized_keys file
@@ -125,7 +128,9 @@ VERSION="0.19"
 HOSTS_FILE="auth/my_hosts.conf"
 # Optional: Define a terminal to open new SSH sessions in.
 # If blank or the command is not found, the session will open in the current terminal.
-TERMINAL_CMD="gnome-terminal" #<-- change this to your preferred terminal (e.g., xterm, konsole)
+# TERMINAL_CMD="xterm -e"
+# TERMINAL_CMD="konsole -e"
+TERMINAL_CMD="gnome-terminal --" #<-- change this to your preferred terminal
 
 # ==============================================================================
 # --- Core Functions ---
@@ -339,7 +344,7 @@ connect_to_host() {
     # Hand off to the final interactive session
     if [[ -n "${TERMINAL_CMD}" && -x "$(command -v ${TERMINAL_CMD})" ]]; then
         echo "Opening new terminal with '${TERMINAL_CMD}'..."
-        ${TERMINAL_CMD} -e "ssh -o ControlPath='${socket_file}' '${user}@${hostname}' -p '${port}'" &
+        ${TERMINAL_CMD} ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}" &
     else
         echo "Spawning session in current terminal..."
         exec ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"

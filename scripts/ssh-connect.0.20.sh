@@ -3,82 +3,56 @@
 # ==============================================================================
 # Script: ssh-connect.sh
 # Description: Facilitates SSH connections using a predefined list of hosts.
+# Repository: https://github.com/thatguyinoz/ssh_connect
 # Author: peter@hctech.com.au
 # License: MIT
 # ==============================================================================
 
 # --- Script Metadata and Versioning ---
 SCRIPT_NAME=$(basename "$0")
-VERSION="0.14"
+VERSION="0.20"
 
 # --- Changelog ---
-# Version 0.14:
-#   - Fixed a critical bug in the direct connection argument parser.
-#   - The parser is now order-independent and correctly handles both
-#     '-p <port>' and '-p<port>' syntax.
+# Version 0.20:
+#   - Added -v/--version argument to display the script version.
+#   - Added GitHub repository link to the script header.
+#   - Condensed the detailed changelog for versions 0.01-0.15 into a summary.
 #
-# Version 0.13:
-#   - Corrected the direct connection logic for hosts requiring passwords.
-#   - The script now performs a silent, key-only test first. If that fails,
-#     it saves the host and proceeds to a full interactive login, which
-#     correctly handles password prompts on servers with verbose banners.
+# Version 0.19:
+#   - Refactored the TERMINAL_CMD logic for better cross-terminal compatibility.
+#     The execution flag ('--' for gnome-terminal, '-e' for others) is now
+#     part of the TERMINAL_CMD variable itself, simplifying the execution command.
+#   - Implemented a more robust, user-provided method for EdgeOS key
+#     installation.
+#   - The script now creates and manipulates a persistent authorized_keys file
+#     in /config/auth and uses sudo to copy it into place to keep the file secure,
+#     the user can run "configure|loadkey <user> /config/auth/<user>-authorised_keys|exit"
+#     to add the keys to the saved config if desired.
 #
-# Version 0.12:
-#   - Improved reliability of the direct connection test.
-#   - Test now uses 'BatchMode=yes' and redirects output to /dev/null to
-#     prevent verbose host banners from causing false negatives.
+# Version 0.18:
+#   - Implemented a simplified, fully automated key installation for EdgeOS.
+#   - The script now attempts to directly run the 'loadkey' command non-interactively,
+#     removing the need for a manual, user-guided session. This is a more
+#     reliable and efficient method based on new testing.
 #
-# Version 0.11:
-#   - Added direct connection feature.
-#   - Script can now be called with 'user@host [-p port]' arguments.
-#   - Automatically tests new connections and prompts to save them.
-#   - Intelligently checks for existing hosts before saving.
-#   - Usage information updated to reflect new syntax.
+# Version 0.17:
+#   - Added intelligent, device-aware SSH key installation.
+#   - The script now detects the 'EdgeOS' banner on connection.
+#   - If an EdgeOS device is detected, it automatically uses the required
+#     specialized installation process (scp + loadkey command).
+#   - Standard hosts continue to use the robust 'ssh-copy-id' method.
 #
-# Version 0.10:
-#   - Significantly improved the usage() function with detailed help info.
-#   - Help text now includes a full description, configuration details for
-#     the host file, and displays the currently configured TERMINAL_CMD.
+# Version 0.16:
+#   - Implemented a two-stage connection fallback for maximum reliability.
+#   - The script now retries with password-only authentication if the initial
+#     connection attempt fails, successfully handling servers that disconnect
+#     after a failed public key authentication.
 #
-# Version 0.09:
-#   - Fixed regression from v0.08. Re-applied the correct fix for the
-#     ssh-copy-id command, ensuring key installation works again.
-#   - This version now correctly combines the key installation fix with the
-#     robust awk-based host file update logic from v0.08.
-#
-# Version 0.08:
-#   - (Broken Release) Attempted to fix host file update logic but
-#     accidentally reintroduced ssh-copy-id bug from v0.07.
-#
-# Version 0.07:
-#   - Final fix for ssh-copy-id command. Connection parameters are now
-#     passed as separate arguments, resolving the parsing issue.
-#
-# Version 0.05:
-#   - Fixed bug in 'ssh -O check' by adding the missing ControlPath option.
-#     This allows the script to correctly reuse existing connections.
-#
-# Version 0.04:
-#   - Reworked connection logic to prevent orphaned sessions.
-#   - Switched to ControlPersist=10s for automatic cleanup.
-#   - Added robust connection check with 'ssh -O check'.
-#   - Script now hands off control to ssh session with 'exec' and exits.
-#
-# Version 0.03:
-#   - Modified connect_to_host() to fall back to the current terminal
-#     if TERMINAL_CMD is not set or the command is not found.
-#   - Updated comments to reflect that TERMINAL_CMD is optional.
-#
-# Version 0.02:
-#   - Implemented the missing create_sample_config() function.
-#   - Added command-line argument parsing for -h and --help.
-#   - Added a check to verify that the TERMINAL_CMD exists before use.
-#
-# Version 0.01:
-#   - Initial refactor to align with project style guide.
-#   - Added standard header, main() function, and section structure.
-#   - Renamed help_text() to usage().
-#   - Moved TODO items to TODO.md.
+# Versions 0.01 - 0.15:
+#   - Initial development of the core features, including the interactive
+#     host selection menu, SSH connection multiplexing, direct connection
+#     handling, and robust error handling and connection testing.
+#   - Numerous bug fixes and reliability improvements.
 #
 # Version 0.00:
 #   - Initial commit with basic TODO list.
@@ -91,7 +65,9 @@ VERSION="0.14"
 HOSTS_FILE="auth/my_hosts.conf"
 # Optional: Define a terminal to open new SSH sessions in.
 # If blank or the command is not found, the session will open in the current terminal.
-TERMINAL_CMD="gnome-terminal" #<-- change this to your preferred terminal (e.g., xterm, konsole)
+# TERMINAL_CMD="xterm -e"
+# TERMINAL_CMD="konsole -e"
+TERMINAL_CMD="gnome-terminal --" #<-- change this to your preferred terminal with the argument "-e" or "--" as needed to allow passing of further arguments.
 
 # ==============================================================================
 # --- Core Functions ---
@@ -122,6 +98,7 @@ DESCRIPTION:
 
 OPTIONS:
     -h, --help    Show this help message.
+    -v, --version Show the script version.
 
 CONFIGURATION:
     Host File:
@@ -262,29 +239,35 @@ connect_to_host() {
     
     local socket_dir="${HOME}/.ssh/controlmasters"
     local socket_file="${socket_dir}/${user}@${hostname}:${port}"
+    local is_edgerouter=false
     
-    # Create the directory for control sockets if it doesn't exist
     mkdir -p "${socket_dir}"
     
-    # If a socket already exists, it might be stale. We'll check and reuse if it's live.
-    if ! ssh -o ControlPath="${socket_file}" -O check "${user}@${hostname}" -p "${port}" &>/dev/null; then
-        echo "Establishing connection to ${friendly_name}..."
-        # Start a new master connection in the background.
-        # ControlPersist=10s: Keep master alive for 10s after the last client disconnects.
-        ssh -fNM -o ControlPersist=10s -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
-        
-        # Wait a moment for the connection to establish
-        sleep 1
-        
-        # Check if the master connection was successful.
-        if ! ssh -o ControlPath="${socket_file}" -O check "${user}@${hostname}" -p "${port}" &>/dev/null; then
-            echo "Connection to ${friendly_name} failed."
-            # Clean up the failed socket
-            rm -f "${socket_file}"
-            return 1
-        fi
-    else
+    if ssh -o ControlPath="${socket_file}" -O check "${user}@${hostname}" -p "${port}" &>/dev/null; then
         echo "Reusing existing connection to ${friendly_name}."
+    else
+        echo "Establishing connection to ${friendly_name}..."
+        
+        local banner_file
+        banner_file=$(mktemp)
+        
+        # Attempt 1: Standard interactive connection.
+        if ! ssh -M -o ControlPersist=10s -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}" "exit" &> "${banner_file}"; then
+            # Attempt 2: Password-only fallback.
+            echo "Initial connection failed. Retrying with password-only authentication..."
+            if ! ssh -M -o ControlPersist=10s -o ControlPath="${socket_file}" -o PreferredAuthentications=password "${user}@${hostname}" -p "${port}" "exit" &> "${banner_file}"; then
+                echo "Connection to ${friendly_name} failed."
+                cat "${banner_file}" # Show the user the error
+                rm -f "${socket_file}" "${banner_file}"
+                return 1
+            fi
+        fi
+        
+        # Check for EdgeOS banner
+        if grep -q "EdgeOS" "${banner_file}"; then
+            is_edgerouter=true
+        fi
+        rm -f "${banner_file}"
     fi
 
     # --- Connection Successful ---
@@ -293,17 +276,15 @@ connect_to_host() {
 
     # If a key is not yet installed, offer to install one.
     if [[ "${key_installed}" -ne 1 ]]; then
-        offer_to_install_key "$1"
+        offer_to_install_key "$1" "${is_edgerouter}"
     fi
 
-    # Hand off to the interactive session
+    # Hand off to the final interactive session
     if [[ -n "${TERMINAL_CMD}" && -x "$(command -v ${TERMINAL_CMD})" ]]; then
         echo "Opening new terminal with '${TERMINAL_CMD}'..."
-        ${TERMINAL_CMD} -e "ssh -o ControlPath='${socket_file}' '${user}@${hostname}' -p '${port}'" &
-        # The script will now exit.
+        ${TERMINAL_CMD} ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}" &
     else
         echo "Spawning session in current terminal..."
-        # Replace the script's process with the ssh process.
         exec ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}"
     fi
 }
@@ -314,6 +295,7 @@ connect_to_host() {
 # ------------------------------------------------------------------------------
 offer_to_install_key() {
     local host_details="$1"
+    local is_edgerouter="$2"
     IFS=',' read -r friendly_name user hostname port _ _ <<< "${host_details}"
     local socket_dir="${HOME}/.ssh/controlmasters"
     local socket_file="${socket_dir}/${user}@${hostname}:${port}"
@@ -344,13 +326,41 @@ offer_to_install_key() {
     local selected_key="${public_keys[$((selection-1))]}"
     echo "Installing key '${selected_key}'..."
 
-    # Use the existing control socket to avoid a password prompt.
-    # The port, options, and host must be passed as separate arguments.
-    if ssh-copy-id -i "${selected_key}" -p "${port}" -o "ControlPath=${socket_file}" "${user}@${hostname}"; then
-        echo "Key installed successfully."
+    if [[ "${is_edgerouter}" == "true" ]]; then
+        # --- EdgeOS Specific Logic (Simplified & Automated) ---
+        echo "EdgeOS device detected. Using simplified installation method."
+        local remote_tmp_key="/tmp/ssh_connect_key.pub"
+
+        # Step 1: SCP the key to the device
+        echo "Uploading public key..."
+        if ! scp -o ControlPath="${socket_file}" "${selected_key}" "${user}@${hostname}:${remote_tmp_key}"; then
+            echo "Error: Failed to copy key to the EdgeRouter."
+            return 1
+        fi
+
+        # Step 2: append the key from /tmp/<keyfile> to /config/auth/<user>_authorized_keys then sudo copy it back.
+        echo "Running loadkey command..."
+        if ! ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}" "cat /home/$user/.ssh/authorized_keys > /config/auth/$user-authorized_keys;cat ${remote_tmp_key} >>/config/auth/$user-authorized_keys;sudo cp /config/auth/$user-authorized_keys /home/$user/.ssh/authorized_keys"; then
+            echo "Error: Failed to run loadkey command on the EdgeRouter."
+            # Still try to clean up
+            ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}" "rm ${remote_tmp_key}"
+            return 1
+        fi
+        # Step 3: Clean up the temporary key
+        echo "Cleaning up..."
+        ssh -o ControlPath="${socket_file}" "${user}@${hostname}" -p "${port}" "rm ${remote_tmp_key}"
+        
+        echo "Key installed successfully on EdgeOS device."
         update_key_status "${host_details}"
+
     else
-        echo "Failed to install SSH key."
+        # --- Standard ssh-copy-id Logic ---
+        if ssh-copy-id -i "${selected_key}" -p "${port}" -o "ControlPath=${socket_file}" "${user}@${hostname}"; then
+            echo "Key installed successfully."
+            update_key_status "${host_details}"
+        else
+            echo "Failed to install SSH key."
+        fi
     fi
 }
 
@@ -451,9 +461,8 @@ handle_direct_connection() {
 
     # --- New Host: Test Connection ---
     echo "New host detected. Testing for key-based authentication..."
-
     # Stage 1: Try with public keys only, in batch mode to prevent prompts.
-    if ssh -o BatchMode=yes -o ConnectTimeout=5 "${user}@${hostname}" -p "${port}" "exit" &> /dev/null; then
+    if ssh -v -o BatchMode=yes -o ConnectTimeout=5 "${user}@${hostname}" -p "${port}" "exit" &> /dev/null; then
         echo "Connection successful with SSH key."
         key_installed=1
         read -p "Enter a friendly name to save this host: " friendly_name
@@ -463,7 +472,6 @@ handle_direct_connection() {
         key_installed=0
         read -p "Enter a friendly name to save this host: " friendly_name
     fi
-
     # --- Save New Host ---
     if [[ -z "${friendly_name}" ]]; then
         friendly_name="${user_host}" # Default to user@host if no name is given
@@ -485,6 +493,9 @@ main() {
     # --- Argument Parsing ---
     if [[ "$1" == "-h" || "$1" == "--help" ]]; then
         usage
+        return 0
+    elif [[ "$1" == "-v" || "$1" == "--version" ]]; then
+        echo "${VERSION}"
         return 0
     fi
 
