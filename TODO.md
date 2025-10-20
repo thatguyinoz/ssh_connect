@@ -39,5 +39,7 @@ This document tracks the development status of the `ssh-connect` utility.
 *   **User Experience:**
     *   On launch, directly offer to reconnect to the single most recently used host as a default, quick-connect option.
 
+*   **Additional ssh arguments such as -R or -L**
+
 *   **Host Management Commands:**
     *   Add paging or display formatting for when the list if hosts is too long.

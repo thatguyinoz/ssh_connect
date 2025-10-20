@@ -4,7 +4,7 @@
 # Script: ssh-connect.sh
 # Description: Facilitates SSH connections using a predefined list of hosts.
 # Repository: https://github.com/thatguyinoz/ssh_connect
-# Author: peter@hctech.com.au
+# Author: thatguy@hctech.com.au
 # License: MIT
 # ==============================================================================
 

@@ -10,7 +10,7 @@
 
 # --- Script Metadata and Versioning ---
 SCRIPT_NAME=$(basename "$0")
-VERSION="0.21"
+VERSION="0.22"
 
 # --- Changelog ---
 # Version 0.21:
@@ -102,12 +102,11 @@ check_for_updates_if_needed() {
     mkdir -p "$(dirname "${LOCK_FILE}")"
 
     # If the lock file doesn't exist, or if it's older than the interval,
-    # run the check in the background.
+    # run the check.
     if [[ ! -f "${LOCK_FILE}" ]] || \
        (( $(date +%s) - $(date -r "${LOCK_FILE}" +%s) > VERSION_CHECK_INTERVAL )); then
         
-        # Run the check in the foreground to ensure the message appears before
-        # the host list. The check function has its own timeout.
+        # Run the check in a background process so it doesn't slow down startup
         check_for_updates
         # Update the lock file's timestamp
         touch "${LOCK_FILE}"
@@ -123,8 +122,7 @@ check_for_updates() {
     local repo_url="https://api.github.com/repos/thatguyinoz/ssh_connect/contents/scripts"
     
     # Fetch, parse, and sort to find the latest version number online.
-    # Use a 2-second timeout to prevent the script from hanging.
-    latest_version=$(curl --max-time 2 -sL "${repo_url}" | \
+    latest_version=$(curl -sL "${repo_url}" | \
         grep -o 'ssh-connect\.[0-9]\+\.[0-9][0-9]\?\.sh' | \
         sed 's/ssh-connect\.\(.*\)\.sh/\1/' | \
         sort -V | \
