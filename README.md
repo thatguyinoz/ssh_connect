@@ -11,6 +11,7 @@
     *   Offers to install a public SSH key for passwordless login.
     *   Visually indicates hosts with keys (🔑) and those behind a jumphost (↪️).
     *   **Jumphost Support:** Connect through a bastion host by linking hosts by name.
+    *   **Automatic Version Check:** Periodically checks for new script versions on GitHub and notifies the user.
     *   Updates a timestamp in the host file only after a successful connection.
     *   Stores host configurations in an external, easy-to-edit file.
 *   **Technology Stack:** Bash
@@ -79,6 +80,8 @@ The script will display a numbered list of available hosts, sorted by the most r
 Enter the number corresponding to the host you wish to connect to and press Enter.
 
 If it's your first time connecting to a host, the script will offer to install one of your local public SSH keys (`~/.ssh/*.pub`) onto the remote server, enabling passwordless login for future sessions.
+
+The script will automatically check for new versions on GitHub once per session or once every 7 days. If a new version is found, a notification will be displayed above the host list.
 
 ---
 
