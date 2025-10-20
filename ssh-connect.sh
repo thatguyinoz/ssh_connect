@@ -1,1 +1,1 @@
-scripts/ssh-connect.0.23.sh
+scripts/ssh-connect.0.24.sh
