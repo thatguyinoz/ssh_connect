@@ -33,12 +33,6 @@ This document tracks the development status of the `ssh-connect` utility.
 
 ### Future Enhancements 🚀
 
-*   **Configuration:**
-    *   Migrate script settings (like `TERMINAL_CMD` and `HOSTS_FILE` path) from hardcoded variables to an external INI configuration file (e.g., `~/.config/ssh-connect.ini`).
-
-*   **User Experience:**
-    *   On launch, directly offer to reconnect to the single most recently used host as a default, quick-connect option.
-
 *   **Additional ssh arguments such as -R or -L**
 
 *   **Host Management Commands:**
