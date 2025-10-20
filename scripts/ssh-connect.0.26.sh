@@ -15,7 +15,7 @@ VERSION="0.26"
 
 # --- Changelog ---
 # Version 0.26:
-#   - Added a 'Help' option to the interactive host selection menu.
+#   - Added 'Help' and 'Quit' options to the interactive host selection menu.
 #
 # Version 0.25:
 #   - Added support for ad-hoc port forwarding. The script now accepts
