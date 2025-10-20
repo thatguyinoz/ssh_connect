@@ -13,6 +13,12 @@ SCRIPT_NAME=$(basename "$0")
 VERSION="0.22"
 
 # --- Changelog ---
+# Version 0.22:
+#   - Added an automatic, periodic check for new script versions on GitHub.
+#     - The check runs once per user session or once every 7 days.
+#     - Notifies user if a new version is available to download.
+#     - Prompts user to push local changes if their version is newer.
+#
 # Version 0.21:
 #   - Implemented flexible jumphost (bastion) support.
 #     - Hosts can be linked by friendly name in a unified host file.
