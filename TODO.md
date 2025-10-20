@@ -16,6 +16,10 @@ This document tracks the development status of the `ssh-connect` utility.
     *   ✅ Use SSH `ControlMaster` and `ControlPersist` for robust, reusable connections, preventing orphaned sessions.
     *   ✅ Implement a direct connection mode (`./ssh-connect.sh user@host`).
     *   ✅ Implement a robust, two-stage connection process to handle servers with strict security and verbose banners.
+    *   ✅ **Jumphost Support:**
+        *   Connect to hosts via a jumphost (bastion) by linking to another host entry by its friendly name.
+        *   Visually indicate hosts that use a jumphost (↪️).
+        *   Interactively prompts to assign a jumphost when adding a new host.
 
 *   **Key Installation:**
     *   ✅ Offer to install a public SSH key on the first successful connection.
@@ -36,7 +40,4 @@ This document tracks the development status of the `ssh-connect` utility.
     *   On launch, directly offer to reconnect to the single most recently used host as a default, quick-connect option.
 
 *   **Host Management Commands:**
-    *   Add command-line arguments to manage the host file directly, for example:
-        *   `./ssh-connect.sh --add "New Server,user,host,22"`
-        *   `./ssh-connect.sh --delete "Old Server"`
-        *   `./ssh-connect.sh --list`
+    *   Add paging or display formatting for when the list if hosts is too long.

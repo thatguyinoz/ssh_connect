@@ -6,10 +6,11 @@
 *   **High-Level Summary:** A shell script to simplify and manage SSH connections by providing an interactive menu of predefined hosts.
 *   **Core Features:**
     *   Connect to frequently used hosts via a simple selection menu.
-    *   Uses SSH connection multiplexing (`ControlMaster`) to establish a persistent background connection, allowing for instant subsequent connections.
-    *   Opens interactive sessions in a new terminal window (if available), or in the current one.
-    *   Offers to install a public SSH key for passwordless login on the first successful connection.
-    *   Visually indicates (🔑) which hosts are already configured with an SSH key.
+    *   Uses SSH connection multiplexing (`ControlMaster`) for instant subsequent connections.
+    *   Opens sessions in a new terminal window or the current one.
+    *   Offers to install a public SSH key for passwordless login.
+    *   Visually indicates hosts with keys (🔑) and those behind a jumphost (↪️).
+    *   **Jumphost Support:** Connect through a bastion host by linking hosts by name.
     *   Updates a timestamp in the host file only after a successful connection.
     *   Stores host configurations in an external, easy-to-edit file.
 *   **Technology Stack:** Bash
@@ -73,7 +74,7 @@ To use the script, simply execute it from your terminal:
 ./ssh-connect.sh
 ```
 
-The script will display a numbered list of available hosts, sorted by the most recently connected. Hosts that are already configured for passwordless login will be marked with a key icon (🔑).
+The script will display a numbered list of available hosts, sorted by the most recently connected. Hosts that are already configured for passwordless login will be marked with a key icon (🔑). Hosts that connect through a jumphost will have a jump icon at the end of the line (↪️).
 
 Enter the number corresponding to the host you wish to connect to and press Enter.
 
@@ -85,18 +86,32 @@ If it's your first time connecting to a host, the script will offer to install o
 
 ### Host File
 
-The script uses a configuration file to store the list of SSH hosts.
+The script uses a configuration file to store the list of SSH hosts. By default, it looks for `auth/my_hosts.conf` inside the script's directory.
 
-*   **Default Location:** `~/.config/mysshhosts.conf`
-*   **Development Location:** `auth/my_hosts.conf`
+The file uses a flexible, 8-column comma-separated value (CSV) format that allows for both direct and proxied (jumphost) connections.
 
-The file uses a simple comma-separated value (CSV) format:
+**Format:**
+`Friendly Name,User,Hostname,Port,Timestamp,Key,JumpHostName,IsJumphost`
 
+*   **`Friendly Name`**: A unique name for the host (e.g., "Web Server").
+*   **`Username`**: The user to connect as.
+*   **`Hostname`**: The hostname or IP address.
+*   **`Port`**: The SSH port.
+*   **`Timestamp`**: Unix timestamp of the last connection (managed by the script).
+*   **`KeyInstalled`**: `1` if an SSH key is installed, otherwise `0`.
+*   **`JumpHostName`**: The `Friendly Name` of another host to use as a proxy. Set to `0` for a direct connection.
+*   **`IsJumphost`**: `1` if this host can be used as a jumphost for others, otherwise `0`.
+
+**Example `auth/my_hosts.conf`:**
 ```
-# Format: Friendly Name,User,Hostname/IP,Port,LastConnectedTimestamp,KeyInstalled
-# KeyInstalled: 1 if an SSH key has been installed, 0 otherwise.
-My Web Server,webadmin,192.168.1.100,22,1678886400,1
-Corporate DNS,root,dns.corp.example.com,22,0,0
+# 1. A host that is a jumphost and can also be connected to directly.
+Main-Bastion,jumpadmin,bastion.example.com,22,0,1,0,1
+
+# 2. A private server that can only be reached through "Main-Bastion".
+Private-DB,dbuser,10.0.1.50,22,0,0,Main-Bastion,0
+
+# 3. A standard, direct-connect server.
+Web-Server,webadmin,192.168.1.100,22,0,0,0,0
 ```
 
 ### Terminal Command
