@@ -33,6 +33,12 @@ This document tracks the development status of the `ssh-connect` utility.
 
 ### Future Enhancements 🚀
 
+*   **Hybrid Port Forwarding Support:**
+    *   Update the host file format to 9 columns to include a `ForwardingRules` field.
+    *   This field will store persistent `-L` or `-R` flags for a host.
+    *   Multiple rules can be stored, separated by semicolons (`;`).
+    *   Modify the script to combine these persistent rules with any ad-hoc forwarding flags provided on the command line.
+
 *   **Additional ssh arguments such as -R or -L**
 
 *   **Host Management Commands:**
