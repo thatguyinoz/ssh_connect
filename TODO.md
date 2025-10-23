@@ -4,6 +4,11 @@ This document tracks the development status of the `ssh-connect` utility.
 
 ---
 
+### Incompleted Features 
+
+*  **update README.md with forwarding features and explict examples**
+
+
 ### Completed Features ✔️
 
 *   **Host Management:**
@@ -29,6 +34,11 @@ This document tracks the development status of the `ssh-connect` utility.
         *   Uses a specialized, reliable method to install keys on EdgeOS devices.
         *   Uses the standard `ssh-copy-id` for all other hosts.
 
+*   **Auto-Update:**
+    *   ✅ Periodically checks GitHub for new versions.
+    *   ✅ Prompts the user to download and apply updates.
+    *   ✅ Intelligently uses `sudo` if required to update script in protected directories.
+
 ---
 
 ### Future Enhancements 🚀
@@ -38,8 +48,7 @@ This document tracks the development status of the `ssh-connect` utility.
     *   This field will store persistent `-L` or `-R` flags for a host.
     *   Multiple rules can be stored, separated by semicolons (`;`).
     *   Modify the script to combine these persistent rules with any ad-hoc forwarding flags provided on the command line.
-
-*   **Additional ssh arguments such as -R or -L**
+    *   Modify the script to display an icon if saved forwarding values are present. update metadata and readme to document these changes.
 
 *   **Host Management Commands:**
     *   Add paging or display formatting for when the list if hosts is too long.

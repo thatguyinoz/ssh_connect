@@ -132,19 +132,43 @@ You can change this to your preferred terminal, for example: `xterm`, `konsole`,
 
 ## 4. Advanced Usage
 
-### Direct Connection
+### Command-Line Usage
 
-For quick, one-off connections, you can use the script as a wrapper for `ssh`. It will automatically test the connection and prompt you to save the new host for future use.
+For quick connections or to use advanced SSH features, you can provide arguments directly on the command line.
 
-The arguments can be provided in any order:
+#### Direct Connection
+
+To connect to a host not in your configuration file, use the standard `user@hostname` format. The script will test the connection and prompt you to save it for future use.
 
 ```bash
-# Connect using the default port 22
 ./ssh-connect.sh user@hostname
+```
 
-# Specify a custom port
-./ssh-connect.sh -p 2222 user@hostname
+#### Specifying a Custom Port (`-p`)
+
+Use the `-p` flag to specify a connection port. The script is flexible and supports both space-separated and attached values.
+
+```bash
+# Connect to a host on port 2222 (space-separated)
+./ssh-connect.sh user@hostname -p 2222
+
+# Connect to a host on port 2222 (attached)
 ./ssh-connect.sh user@hostname -p2222
+```
+
+#### Port Forwarding (`-L` and `-R`)
+
+The script fully supports ad-hoc local (`-L`) and remote (`-R`) port forwarding. You can pass these flags just as you would with the standard `ssh` command. This feature also supports both space-separated and attached values.
+
+```bash
+# Forward local port 8080 to remote port 80 (space-separated)
+./ssh-connect.sh user@hostname -L 8080:localhost:80
+
+# Forward local port 9000 to remote port 3000 (attached)
+./ssh-connect.sh user@hostname -L9000:localhost:3000
+
+# You can also combine flags
+./ssh-connect.sh user@hostname -p2222 -L8080:localhost:80
 ```
 
 ### Intelligent Key Installation
