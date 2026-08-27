@@ -158,8 +158,13 @@ Use the `-p` flag to specify a connection port. The script is flexible and suppo
 
 #### Port Forwarding (`-L` and `-R`)
 
-The script fully supports ad-hoc local (`-L`) and remote (`-R`) port forwarding. You can pass these flags just as you would with the standard `ssh` command. This feature also supports both space-separated and attached values.
+The script fully supports ad-hoc local (`-L`) and remote (`-R`) port forwarding. You can pass these flags just as you would with the standard `ssh` command. This feature is highly flexible and supports:
+*   Both space-separated (e.g., `-L 8080:localhost:80`) and attached (e.g., `-L8080:localhost:80`) formats.
+*   Multiple simultaneous forwarding rules (combining `-L` and `-R` flags).
+*   Ad-hoc forwarding applied to direct connections, configured hosts by friendly name, and even hosts selected interactively from the menu.
 
+##### 1. Ad-hoc Forwarding with Direct Connections
+Connect to an unconfigured host and forward ports on the fly:
 ```bash
 # Forward local port 8080 to remote port 80 (space-separated)
 ./ssh-connect.sh user@hostname -L 8080:localhost:80
@@ -167,8 +172,29 @@ The script fully supports ad-hoc local (`-L`) and remote (`-R`) port forwarding.
 # Forward local port 9000 to remote port 3000 (attached)
 ./ssh-connect.sh user@hostname -L9000:localhost:3000
 
-# You can also combine flags
-./ssh-connect.sh user@hostname -p2222 -L8080:localhost:80
+# Combine connection port specifying (-p) with port forwarding
+./ssh-connect.sh user@hostname -p 2222 -L 8080:localhost:80
+```
+
+##### 2. Ad-hoc Forwarding with Configured Hosts (Friendly Name)
+Apply forwarding directly to a host defined in your `auth/my_hosts.conf` by referencing its friendly name:
+```bash
+# Forward local port 8080 to the "Web-Server" host
+./ssh-connect.sh Web-Server -L 8080:localhost:80
+```
+
+##### 3. Interactive Menu Mode with Port Forwarding
+If you run the script with forwarding flags but without specifying a host name/address, the script will open the interactive menu. The port forwarding rules you specified will be applied automatically to whichever host you select from the list!
+```bash
+# Open interactive host menu; selected host will have port 8080 forwarded
+./ssh-connect.sh -L 8080:localhost:80
+```
+
+##### 4. Multiple Forwarding Rules
+You can combine multiple local and remote forwarding rules in a single command. These can be passed to direct connections, friendly names, or interactive menu mode:
+```bash
+# Set up multiple port forwardings (local 8080 and remote 9000) simultaneously
+./ssh-connect.sh Web-Server -L 8080:localhost:80 -R 9000:localhost:3000
 ```
 
 ### Intelligent Key Installation

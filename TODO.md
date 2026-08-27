@@ -6,10 +6,13 @@ This document tracks the development status of the `ssh-connect` utility.
 
 ### Incompleted Features 
 
-*  **update README.md with forwarding features and explict examples**
+*   *(None)*
 
 
 ### Completed Features ✔️
+
+*   **Documentation:**
+    *   ✅ Update README.md with forwarding features and explicit examples.
 
 *   **Host Management:**
     *   ✅ Maintain a list of hosts in an external CSV file (`auth/my_hosts.conf`).
