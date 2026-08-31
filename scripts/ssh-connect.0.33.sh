@@ -134,8 +134,8 @@ VERSION="0.33"
 
 # --- Configuration ---
 # The HOSTS_FILE variable points to the list of hosts.
-# For development, this is a local file. In production, it should be ~/.config/mysshhosts.conf.
-#HOSTS_FILE="~/.config/myhosts.conf"
+# For development, this is a local file. In production, it should be "${HOME}/.config/myhosts.conf".
+#HOSTS_FILE="${HOME}/.config/myhosts.conf"
 HOSTS_FILE="auth/my_hosts.conf"
 # Optional: Define a terminal to open new SSH sessions in.
 # If blank or the command is not found, the session will open in the current terminal.
