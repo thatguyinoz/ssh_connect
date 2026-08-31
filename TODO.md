@@ -11,6 +11,15 @@ This document tracks the development status of the `ssh-connect` utility.
 
 ### Completed Features ✔️
 
+*   **Hybrid Port Forwarding & Advanced SSH Options (Version 0.32):**
+    *   ✅ Update `auth/my_hosts.conf` and `auth/my_hosts.conf.ref` schema to 9 columns, adding an `SSHOptions` field for literal command-line flags.
+    *   ✅ Enhance `connect_to_host` to read the `SSHOptions` field and parse it safely into an array of persistent flags using space-splitting.
+    *   ✅ Combine parsed persistent options with any ad-hoc forwarding/SSH flags from the CLI.
+    *   ✅ Support saving active ad-hoc forwarding/SSH flags as persistent options when interactively saving a new direct host connection.
+    *   ✅ Display a custom icon (`🔗`) in the interactive host selection menu when a host has saved custom SSH options/forwarding rules.
+    *   ✅ Update script header, version metadata, and `README.md` to document the new 9-column schema and literal `SSHOptions` field.
+    *   ✅ Add a debug command that will display the full ssh command used to make the connection.
+
 *   **Documentation:**
     *   ✅ Update README.md with forwarding features and explicit examples.
 
@@ -46,12 +55,4 @@ This document tracks the development status of the `ssh-connect` utility.
 
 ### Future Enhancements 🚀
 
-*   **Hybrid Port Forwarding Support:**
-    *   Update the host file format to 9 columns to include a `ForwardingRules` field.
-    *   This field will store persistent `-L` or `-R` flags for a host.
-    *   Multiple rules can be stored, separated by semicolons (`;`).
-    *   Modify the script to combine these persistent rules with any ad-hoc forwarding flags provided on the command line.
-    *   Modify the script to display an icon if saved forwarding values are present. update metadata and readme to document these changes.
-
-*   **Host Management Commands:**
-    *   Add paging or display formatting for when the list if hosts is too long.
+*   *(None)*

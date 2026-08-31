@@ -91,10 +91,10 @@ The script will automatically check for new versions on GitHub once per session 
 
 The script uses a configuration file to store the list of SSH hosts. By default, it looks for `auth/my_hosts.conf` inside the script's directory.
 
-The file uses a flexible, 8-column comma-separated value (CSV) format that allows for both direct and proxied (jumphost) connections.
+The file uses a flexible, 9-column comma-separated value (CSV) format that allows for both direct and proxied (jumphost) connections, as well as persistent custom SSH options per host.
 
 **Format:**
-`Friendly Name,User,Hostname,Port,Timestamp,Key,JumpHostName,IsJumphost`
+`Friendly Name,User,Hostname,Port,Timestamp,Key,JumpHostName,IsJumphost,SSHOptions`
 
 *   **`Friendly Name`**: A unique name for the host (e.g., "Web Server").
 *   **`Username`**: The user to connect as.
@@ -104,17 +104,21 @@ The file uses a flexible, 8-column comma-separated value (CSV) format that allow
 *   **`KeyInstalled`**: `1` if an SSH key is installed, otherwise `0`.
 *   **`JumpHostName`**: The `Friendly Name` of another host to use as a proxy. Set to `0` for a direct connection.
 *   **`IsJumphost`**: `1` if this host can be used as a jumphost for others, otherwise `0`.
+*   **`SSHOptions`**: A literal string of standard SSH flags/options to apply persistently to connections for this host.
 
 **Example `auth/my_hosts.conf`:**
 ```
 # 1. A host that is a jumphost and can also be connected to directly.
-Main-Bastion,jumpadmin,bastion.example.com,22,0,1,0,1
+Main-Bastion,jumpadmin,bastion.example.com,22,0,1,0,1,
 
 # 2. A private server that can only be reached through "Main-Bastion".
-Private-DB,dbuser,10.0.1.50,22,0,0,Main-Bastion,0
+Private-DB,dbuser,10.0.1.50,22,0,0,Main-Bastion,0,
 
 # 3. A standard, direct-connect server.
-Web-Server,webadmin,192.168.1.100,22,0,0,0,0
+Web-Server,webadmin,192.168.1.100,22,0,0,0,0,
+
+# 4. A server with persistent port forwarding and specific cipher options.
+Secure-Tunnel,tunadmin,192.168.1.200,22,0,0,0,0,-L 8080:localhost:80 -c aes256-cbc
 ```
 
 ### Terminal Command
@@ -156,9 +160,9 @@ Use the `-p` flag to specify a connection port. The script is flexible and suppo
 ./ssh-connect.sh user@hostname -p2222
 ```
 
-#### Port Forwarding (`-L` and `-R`)
+#### Advanced SSH Options & Port Forwarding (`-L`, `-R`, `-c`, `-m`, `-o`, `-i`)
 
-The script fully supports ad-hoc local (`-L`) and remote (`-R`) port forwarding. You can pass these flags just as you would with the standard `ssh` command. This feature is highly flexible and supports:
+The script fully supports any ad-hoc and persistent standard SSH options, including local (`-L`) and remote (`-R`) port forwarding, custom ciphers (`-c`), custom MAC algorithms (`-m`), custom options (`-o`), or custom identity files (`-i`). You can pass these flags just as you would with the standard `ssh` command. This feature is highly flexible and supports:
 *   Both space-separated (e.g., `-L 8080:localhost:80`) and attached (e.g., `-L8080:localhost:80`) formats.
 *   Multiple simultaneous forwarding rules (combining `-L` and `-R` flags).
 *   Ad-hoc forwarding applied to direct connections, configured hosts by friendly name, and even hosts selected interactively from the menu.
@@ -195,6 +199,30 @@ You can combine multiple local and remote forwarding rules in a single command. 
 ```bash
 # Set up multiple port forwardings (local 8080 and remote 9000) simultaneously
 ./ssh-connect.sh Web-Server -L 8080:localhost:80 -R 9000:localhost:3000
+```
+
+#### Interactive Menu Paging
+
+When running the script in interactive menu mode (e.g. by running `./ssh-connect.sh` without a host), if the list of hosts is long, the script will automatically organize the hosts into pages (defaulting to 10 hosts per page).
+*   **Next Page**: Press `n` or simply hit the **`Enter` key** to cycle to the next page.
+*   **Previous Page**: Press `p` to cycle to the previous page.
+*   **Wrap-around**: Cycling past the last page wraps back to the first page (and vice-versa).
+
+#### Verbose Debug Mode (`-d` or `--debug`)
+
+If you are experiencing connection issues (such as public key rejection or privileged port binding issues), you can enable **Debug Mode** by passing the `-d` or `--debug` flag on the command line.
+
+When Debug Mode is active:
+1.  The script will print the exact standard and background SSH commands being constructed.
+2.  The script will run SSH with verbosity (`-v`) enabled.
+3.  The standard output/error redirection is bypassed, displaying the **live SSH handshake, cipher exchange, and connection diagnostics** directly on your terminal.
+
+```bash
+# Debug a direct connection
+./ssh-connect.sh user@hostname -d
+
+# Debug connection and port forwarding to a configured host
+./ssh-connect.sh Web-Server -d -L 8080:localhost:80
 ```
 
 ### Intelligent Key Installation
