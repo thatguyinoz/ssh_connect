@@ -27,8 +27,8 @@ There are a couple of ways to download the script.
 If you have `git` installed, you can clone the entire repository:
 
 ```bash
-git clone https://github.com/thatguyinoz/ssh-connect.git
-cd ssh-connect
+git clone https://github.com/thatguyinoz/ssh_connect.git
+cd ssh_connect
 ```
 
 This will download all the files, including the latest version of the script, `ssh-connect.sh`.
@@ -39,12 +39,12 @@ You can download the script directly using `curl` or `wget`.
 
 Using `curl`:
 ```bash
-curl -o ssh-connect.sh https://raw.githubusercontent.com/thatguyinoz/ssh_connect/master/scripts/ssh-connect.0.19.sh
+curl -o ssh-connect.sh https://raw.githubusercontent.com/thatguyinoz/ssh_connect/master/scripts/ssh-connect.0.33.sh
 ```
 
 Using `wget`:
 ```bash
-wget -O ssh-connect.sh https://raw.githubusercontent.com/thatguyinoz/ssh_connect/master/scripts/ssh-connect.0.19.sh
+wget -O ssh-connect.sh https://raw.githubusercontent.com/thatguyinoz/ssh_connect/master/scripts/ssh-connect.0.33.sh
 ```
 
 ### Making the script executable
@@ -94,13 +94,13 @@ The script uses a configuration file to store the list of SSH hosts. By default,
 The file uses a flexible, 9-column comma-separated value (CSV) format that allows for both direct and proxied (jumphost) connections, as well as persistent custom SSH options per host.
 
 **Format:**
-`Friendly Name,User,Hostname,Port,Timestamp,Key,JumpHostName,IsJumphost,SSHOptions`
+`Friendly Name,User,Hostname,Port,LastConnTimestamp,KeyInstalled,JumpHostName,IsJumphost,SSHOptions`
 
 *   **`Friendly Name`**: A unique name for the host (e.g., "Web Server").
-*   **`Username`**: The user to connect as.
+*   **`User`**: The user to connect as.
 *   **`Hostname`**: The hostname or IP address.
 *   **`Port`**: The SSH port.
-*   **`Timestamp`**: Unix timestamp of the last connection (managed by the script).
+*   **`LastConnTimestamp`**: Unix timestamp of the last connection (managed by the script).
 *   **`KeyInstalled`**: `1` if an SSH key is installed, otherwise `0`.
 *   **`JumpHostName`**: The `Friendly Name` of another host to use as a proxy. Set to `0` for a direct connection.
 *   **`IsJumphost`**: `1` if this host can be used as a jumphost for others, otherwise `0`.
